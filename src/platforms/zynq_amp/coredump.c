@@ -125,6 +125,7 @@ int main(void)
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <unistd.h>
+#include <time.h>
 
 #include "general.h"
 #include "target.h"
@@ -160,7 +161,12 @@ void zynq_amp_core_dump(target *t)
                                   pmem, s->base);
         core_add_ph(cf, PT_LOAD, s->base, (void*)ptr, s->size);
     }
-    FILE *f = fopen("zynq_amp_core", "w");
+
+    time_t tim;
+    char fn[80];
+    time(&tim);
+    strftime(fn, sizeof(fn), "zynq_amp_core-%Y%m%d-%H%M%S", gmtime(&tim));
+    FILE *f = fopen(fn, "w");
     core_dump(f, cf);
     fclose(f);
     close(pmem);

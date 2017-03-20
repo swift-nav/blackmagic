@@ -4,3 +4,4 @@ CC = $(CROSS_COMPILE)gcc
 
 SRC += 	timing.c	\
         coredump.c  \
+        crash_watchdog.c \

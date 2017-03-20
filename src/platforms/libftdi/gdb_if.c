@@ -22,9 +22,11 @@
  * Serial Debugging protocol is implemented.  This implementation for Linux
  * uses a TCP server on port 2000.
  */
+#define _GNU_SOURCE
 #include <stdio.h>
 
 #ifndef WIN32
+#   include <sys/types.h>
 #   include <sys/socket.h>
 #   include <netinet/in.h>
 #   include <netinet/tcp.h>
@@ -35,6 +37,8 @@
 #   include <ws2tcpip.h>
 #endif
 
+#include <unistd.h>
+#include <fcntl.h>
 #include <assert.h>
 
 #include "general.h"
@@ -60,6 +64,8 @@ int gdb_if_init(void)
 	assert(setsockopt(gdb_if_serv, SOL_SOCKET, SO_REUSEADDR, (void*)&opt, sizeof(opt)) != -1);
 	assert(setsockopt(gdb_if_serv, IPPROTO_TCP, TCP_NODELAY, (void*)&opt, sizeof(opt)) != -1);
 
+	fcntl(gdb_if_serv, F_SETFL, O_NONBLOCK);
+
 	assert(bind(gdb_if_serv, (void*)&addr, sizeof(addr)) != -1);
 	assert(listen(gdb_if_serv, 1) != -1);
 
@@ -77,8 +83,12 @@ unsigned char gdb_if_getchar(void)
 	while(i <= 0) {
 		if(gdb_if_conn <= 0) {
 			gdb_if_conn = accept(gdb_if_serv, NULL, NULL);
-			if (gdb_if_conn <= 0)
+			if (gdb_if_conn <= 0) {
+				extern void crash_watchdog_poll(void);
+				crash_watchdog_poll();
+				usleep(1000);
 				return 0x04;
+			}
 			DEBUG("Got connection %d\n", gdb_if_conn);
 		}
 		i = recv(gdb_if_conn, (void*)&ret, 1, 0);

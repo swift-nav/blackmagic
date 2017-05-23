@@ -29,8 +29,14 @@ target *target_list = NULL;
 target *target_new(void)
 {
 	target *t = (void*)calloc(1, sizeof(*t));
-	t->next = target_list;
-	target_list = t;
+	if (target_list) {
+		target *c = target_list;
+		while (c->next)
+			c = c->next;
+		c->next = t;
+	} else {
+		target_list = t;
+	}
 
 	return t;
 }
@@ -349,7 +355,7 @@ int target_breakwatch_clear(target *t,
 {
 	struct breakwatch *bwp = NULL, *bw;
 	int ret = 1;
-	for (bw = t->bw_list; bw; bw = bw->next, bwp = bw)
+	for (bw = t->bw_list; bw; bwp = bw, bw = bw->next)
 		if ((bw->type == type) &&
 		    (bw->addr == addr) &&
 		    (bw->size == len))

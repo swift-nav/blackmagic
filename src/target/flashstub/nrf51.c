@@ -1,7 +1,8 @@
 /*
- * This file is part of the libopenstm32 project.
+ * This file is part of the Black Magic Debug project.
  *
- * Copyright (C) 2010 Thomas Otto <tommi@viadmin.org>
+ * Copyright (C) 2017  Black Sphere Technologies Ltd.
+ * Written by Gareth McMullin <gareth@blacksphere.co.nz>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -16,13 +17,21 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
+#include <stdint.h>
+#include "stub.h"
 
-/* Define memory regions. */
-MEMORY
+/* Non-Volatile Memory Controller (NVMC) Registers */
+#define NVMC           ((volatile uint32_t *)0x4001E000)
+#define NVMC_READY     NVMC[0x100]
+
+void __attribute__((naked))
+nrf51_flash_write_stub(volatile uint32_t *dest, uint32_t *src, uint32_t size)
 {
-	rom (rx) : ORIGIN = 0x08000000, LENGTH =  128K
-	ram (rwx) : ORIGIN = 0x20000000, LENGTH = 20K
-}
+	for (int i; i < size; i += 4) {
+		*dest++ = *src++;
+		while (!(NVMC_READY & 1))
+			;
+	}
 
-/* Include the common ld script from libopenstm32. */
-INCLUDE libopencm3_stm32f1.ld
+	stub_exit(0);
+}

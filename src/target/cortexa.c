@@ -33,6 +33,12 @@
 #include "target.h"
 #include "target_internal.h"
 
+#define ZYNQ_SLCR_UNLOCK       2
+#define ZYNQ_SLCR_UNLOCK_KEY   0xdf0d
+#define ZYNQ_SLCR_A9_CPU_RST_CTRL 145
+#define ZYNQ_SLCR_A9_CPU_RST_CTRL_A9_RST1 (1<<1)
+#define ZYNQ_SLCR_A9_CPU_RST_CTRL_A9_CLKSTOP1 (1<<5)
+
 static const char cortexa_driver_str[] = "ARM Cortex-A";
 
 static bool cortexa_attach(target *t);
@@ -345,6 +351,14 @@ bool cortexa_probe(volatile uint32_t *dbg, volatile uint32_t *slcr)
 	t->mem_read = cortexa_slow_mem_read;
 	t->mem_write = cortexa_slow_mem_write;
 
+	/* Don't touch the CPU while it's clock gated.  This locks up the bus and
+	 * is unrecoverable.  The potential problem here is that the Linux system
+	 * could gate the clock after we've passed this check if, for example, the
+	 * remoteproc driver is unloaded.
+	 */
+	while (slcr[ZYNQ_SLCR_A9_CPU_RST_CTRL] & ZYNQ_SLCR_A9_CPU_RST_CTRL_A9_CLKSTOP1)
+		platform_delay(1);
+
 	/* Set up APB CSW, we won't touch this again */
 	//uint32_t csw = apb->csw | ADIV5_AP_CSW_SIZE_WORD;
 	//adiv5_ap_write(apb, ADIV5_AP_CSW, csw);
@@ -400,7 +414,7 @@ bool cortexa_attach(target *t)
 		return false;
 
 	/* Enable vector catch on Undefined, Prefetch abort, Data abort */
-	apb_write(t, DBGVCR, DBGVCR_SU | DBGVCR_SP | DBGVCR_SD);
+	apb_write(t, DBGVCR, DBGVCR_R | DBGVCR_SU | DBGVCR_SP | DBGVCR_SD);
 
 	/* Clear any stale breakpoints */
 	for(unsigned i = 0; i < priv->hw_breakpoint_max; i++) {
@@ -533,37 +547,17 @@ static void cortexa_regs_write_internal(target *t)
 #include <signal.h>
 static void cortexa_reset(target *t)
 {
-	uint32_t dbgvcr = apb_read(t, DBGVCR);
-	apb_write(t, DBGVCR, dbgvcr | DBGVCR_R); /* Vector catch on reset */
-
-#define ZYNQ_SLCR_UNLOCK       2
-#define ZYNQ_SLCR_UNLOCK_KEY   0xdf0d
-#define ZYNQ_SLCR_A9_CPU_RST_CTRL 145
-#define ZYNQ_SLCR_A9_CPU_RST_CTRL_A9_RST1 (1<<1)
 
 	system("monit stop zmq_adapter_rpmsg_piksi101");
 	system("monit stop zmq_adapter_rpmsg_piksi100");
-	platform_delay(100);
+	platform_delay(1000);
 	system("modprobe -r rpmsg_piksi");
 	system("modprobe -r zynq_remoteproc");
 
-	struct cortexa_priv *priv = t->priv;
-	priv->slcr[ZYNQ_SLCR_UNLOCK] = ZYNQ_SLCR_UNLOCK_KEY;
-	priv->slcr[ZYNQ_SLCR_A9_CPU_RST_CTRL] |= ZYNQ_SLCR_A9_CPU_RST_CTRL_A9_RST1;
-	platform_delay(100);
-	priv->slcr[ZYNQ_SLCR_A9_CPU_RST_CTRL] &= ~ZYNQ_SLCR_A9_CPU_RST_CTRL_A9_RST1;
-	platform_delay(100);
-
-	cortexa_attach(t);
-	apb_write(t, DBGVCR, dbgvcr); /* Clear vector catch */
-
-	system("modprobe zynq_remoteproc");
 	system("modprobe rpmsg_piksi");
-	platform_delay(100);
-	system("monit start zmq_adapter_rpmsg_piksi101");
 	system("monit start zmq_adapter_rpmsg_piksi100");
-
-	cortexa_halt_request(t);
+	system("monit start zmq_adapter_rpmsg_piksi101");
+	system("modprobe zynq_remoteproc");
 }
 
 static void cortexa_halt_request(target *t)

@@ -27,6 +27,8 @@
  * Janky reset code is for Zynq-7000 which disconnects the DP from the JTAG
  * scan chain during reset.
  */
+#include <assert.h>
+
 #include "general.h"
 #include "exception.h"
 #include "adiv5.h"
@@ -336,6 +338,19 @@ static bool cortexa_check_error(target *t)
 	return err;
 }
 
+void zynq_amp_clock_wait(target *t)
+{
+	struct cortexa_priv *priv = t->priv;
+	/* Don't touch the CPU while it's clock gated.  This locks up the
+	 * bus and is unrecoverable.  The potential problem here is that
+	 * the Linux system could gate the clock after we've passed this
+	 * check if, for example, the remoteproc driver is unloaded.
+	 */
+	while (priv->slcr[ZYNQ_SLCR_A9_CPU_RST_CTRL] &
+               ZYNQ_SLCR_A9_CPU_RST_CTRL_A9_CLKSTOP1) {
+		platform_delay(1);
+	}
+}
 
 bool cortexa_probe(volatile uint32_t *dbg, volatile uint32_t *slcr)
 {
@@ -351,13 +366,7 @@ bool cortexa_probe(volatile uint32_t *dbg, volatile uint32_t *slcr)
 	t->mem_read = cortexa_slow_mem_read;
 	t->mem_write = cortexa_slow_mem_write;
 
-	/* Don't touch the CPU while it's clock gated.  This locks up the bus and
-	 * is unrecoverable.  The potential problem here is that the Linux system
-	 * could gate the clock after we've passed this check if, for example, the
-	 * remoteproc driver is unloaded.
-	 */
-	while (slcr[ZYNQ_SLCR_A9_CPU_RST_CTRL] & ZYNQ_SLCR_A9_CPU_RST_CTRL_A9_CLKSTOP1)
-		platform_delay(1);
+	zynq_amp_clock_wait(t);
 
 	/* Set up APB CSW, we won't touch this again */
 	//uint32_t csw = apb->csw | ADIV5_AP_CSW_SIZE_WORD;
@@ -396,6 +405,8 @@ bool cortexa_attach(target *t)
 	/* Clear any pending fault condition */
 	target_check_error(t);
 
+	zynq_amp_clock_wait(t);
+
 	/* Unlock access to MMIO interface */
 	apb_write(t, DBGLAR, DBGLAR_KEY);
 
@@ -414,7 +425,7 @@ bool cortexa_attach(target *t)
 		return false;
 
 	/* Enable vector catch on Undefined, Prefetch abort, Data abort */
-	apb_write(t, DBGVCR, DBGVCR_R | DBGVCR_SU | DBGVCR_SP | DBGVCR_SD);
+	apb_write(t, DBGVCR, DBGVCR_SU | DBGVCR_SP | DBGVCR_SD);
 
 	/* Clear any stale breakpoints */
 	for(unsigned i = 0; i < priv->hw_breakpoint_max; i++) {
@@ -544,19 +555,60 @@ static void cortexa_regs_write_internal(target *t)
 	}
 }
 
+static bool step_one_instruction(target *t)
+{
+	cortexa_halt_resume(t, true);
+	enum target_halt_reason r;
+	do {
+		r = cortexa_halt_poll(t, NULL);
+	} while(r == TARGET_HALT_RUNNING);
+	return r == TARGET_HALT_BREAKPOINT;
+}
+
 static void cortexa_reset(target *t)
 {
-	(void)t;
+	uint32_t dbgvcr = apb_read(t, DBGVCR);
+	/* Trap on reset only */
+	apb_write(t, DBGVCR, DBGVCR_R);
+
+	/* Unload all Linux drivers to reset slave core */
 	system("monit stop zmq_adapter_rpmsg_piksi101");
 	system("monit stop zmq_adapter_rpmsg_piksi100");
-	platform_delay(1000);
+	platform_delay(100);
 	system("modprobe -r rpmsg_piksi");
 	system("modprobe -r zynq_remoteproc");
+	platform_delay(100);
 
+	/* Reload Linux driver to load firmware and release from reset.
+	 * DBGVCR will trap us on the reset vector containing the
+	 * boot trampoline. */
 	system("modprobe rpmsg_piksi");
 	system("monit start zmq_adapter_rpmsg_piksi100");
 	system("monit start zmq_adapter_rpmsg_piksi101");
 	system("modprobe zynq_remoteproc");
+	platform_delay(100);
+
+	/* Ensure we're not clock gated before we talk */
+	zynq_amp_clock_wait(t);
+
+	/* Update our register cache with the newly reset values */
+	cortexa_regs_read_internal(t);
+
+	/* Step through Linux's boot trampoline */
+	/* From Linux kernel, arch/arm/mach-zynq/platsmp.c:62-67
+	 *   This is elegant way how to jump to any address
+	 *   0x0: Load address at 0x8 to r0
+	 *   0x4: Jump by mov instruction
+	 *   0x8: Jumping address
+	 * To get to the first firmware instruction, we need to disable traps,
+	 * and step over 2 instructions.
+	 */
+	apb_write(t, DBGVCR, 0);
+	assert(step_one_instruction(t));
+	assert(step_one_instruction(t));
+
+	/* Restore traps */
+	apb_write(t, DBGVCR, dbgvcr);
 }
 
 static void cortexa_halt_request(target *t)

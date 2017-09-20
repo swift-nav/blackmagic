@@ -544,10 +544,9 @@ static void cortexa_regs_write_internal(target *t)
 	}
 }
 
-#include <signal.h>
 static void cortexa_reset(target *t)
 {
-
+	(void)t;
 	system("monit stop zmq_adapter_rpmsg_piksi101");
 	system("monit stop zmq_adapter_rpmsg_piksi100");
 	platform_delay(1000);
@@ -685,11 +684,11 @@ static int cortexa_breakwatch_set(target *t, struct breakwatch *bw)
 		case 2:
 			bw->reserved[0] = target_mem_read16(t, bw->addr);
 			target_mem_write16(t, bw->addr, 0xBE00);
-			return 0;
+			return target_check_error(t);
 		case 4:
 			bw->reserved[0] = target_mem_read32(t, bw->addr);
 			target_mem_write32(t, bw->addr, 0xE1200070);
-			return 0;
+			return target_check_error(t);
 		default:
 			return -1;
 		}*/
@@ -731,10 +730,10 @@ static int cortexa_breakwatch_clear(target *t, struct breakwatch *bw)
 		switch (bw->size) {
 		case 2:
 			target_mem_write16(t, bw->addr, i);
-			return 0;
+			return target_check_error(t);
 		case 4:
 			target_mem_write32(t, bw->addr, i);
-			return 0;
+			return target_check_error(t);
 		default:
 			return -1;
 		}*/

@@ -165,9 +165,11 @@ void zynq_amp_core_dump(target *t)
     time_t tim;
     char fn[80];
     time(&tim);
-    strftime(fn, sizeof(fn), "zynq_amp_core-%Y%m%d-%H%M%S", gmtime(&tim));
+    strftime(fn, sizeof(fn), "/tmp/cores/zynq_amp_core-%Y%m%d-%H%M%S", gmtime(&tim));
     FILE *f = fopen(fn, "w");
     core_dump(f, cf);
     fclose(f);
     close(pmem);
+
+    piksi_log("Firmware core dumped: %s", fn);
 }

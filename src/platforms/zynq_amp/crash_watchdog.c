@@ -35,6 +35,7 @@ void crash_watchdog_poll(void)
 		/* These shouldn't happen, but dump core anyway */
 	case TARGET_HALT_FAULT:
 	case TARGET_HALT_BREAKPOINT:
+		piksi_log("Firmware crash detected! Dumping core...");
 		printf("Crash detected, dumping core\n");
 		zynq_amp_core_dump(crash_watchdog_target);
 		target_reset(crash_watchdog_target);

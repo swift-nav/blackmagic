@@ -34,5 +34,6 @@ static inline int platform_hwversion(void)
 	        return 0;
 }
 
-#endif
+void piksi_log(char *fmt, ...);
 
+#endif

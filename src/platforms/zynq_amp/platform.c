@@ -28,6 +28,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <stdarg.h>
 
 #include "target/adiv5.h"
 
@@ -94,4 +95,16 @@ uint32_t platform_time_ms(void)
 	struct timeval tv;
 	gettimeofday(&tv, NULL);
 	return (tv.tv_sec * 1000) + (tv.tv_usec / 1000);
+}
+
+void piksi_log(char *fmt, ...)
+{
+	FILE *piksi_log = popen("/usr/bin/sbp_log --error", "w");
+	va_list ap;
+
+	va_start(ap, fmt);
+	vfprintf(piksi_log, fmt, ap);
+	va_end(ap);
+
+	pclose(piksi_log);
 }

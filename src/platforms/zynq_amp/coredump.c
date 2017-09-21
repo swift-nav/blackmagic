@@ -101,25 +101,6 @@ void core_free(struct corefile *cf)
     free(cf);
 }
 
-#if 0
-int main(void)
-{
-    uint32_t regs[18] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 0x1df};
-    struct ARM_vfp vfp;
-    for (int i = 0; i < 32; i++)
-        vfp.d[i] = i;
-    vfp.sr = 0xbeef;
-    struct corefile *cf = core_new(0x28); /* ARM */
-    core_note_add_prstatus(cf, SIGSEGV, regs);
-    core_note_add_arm_vfp(cf, &vfp);
-    core_add_ph(cf, PT_LOAD, 0x100000, "some shit", 12);
-    core_add_ph(cf, PT_LOAD, 0x200000, "some other shit", 16);
-    FILE *f = fopen("core", "w");
-    core_dump(f, cf);
-    fclose(f);
-}
-#endif
-
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -149,11 +130,16 @@ void zynq_amp_core_dump(target *t)
     };
     uint8_t treg[target_regs_size(t)];
     uint32_t regs[18] = {0};
+    uint32_t auxv[2] = {AT_HWCAP, HWCAP_VFP | HWCAP_NEON};
+    struct ARM_vfp fregs;
     target_regs_read(t, treg);
     memcpy(regs, treg, 17 * sizeof(uint32_t));
-
+    memcpy(&fregs.sr, regs + 18 * sizeof(uint32_t), sizeof(uint32_t));
+    memcpy(&fregs.d, regs + 19 * sizeof(uint32_t), 32 * sizeof(uint64_t));
     struct corefile *cf = core_new(0x28); /* ARM */
     core_note_add_prstatus(cf, SIGSEGV, regs);
+    core_note_add(cf, "CORE", NT_AUXV, auxv, sizeof(auxv));
+    core_note_add_arm_vfp(cf, &fregs);
     int pmem = open("/dev/mem", O_RDWR | O_SYNC);
     for (const struct section *s = sections; s->size; s++) {
         cortexa_cache_clean(t, s->base, s->size);

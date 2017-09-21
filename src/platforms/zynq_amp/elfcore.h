@@ -14,7 +14,13 @@
 #define PT_NOTE 4
 
 #define NT_PRSTATUS 1
+#define NT_AUXV 6
 #define NT_ARM_VFP  0x400
+
+#define AT_HWCAP 16
+
+#define HWCAP_VFP 64
+#define HWCAP_NEON 4096
 
 struct Elf32_Ehdr {
     char e_ident[16];

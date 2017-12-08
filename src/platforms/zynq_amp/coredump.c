@@ -115,17 +115,17 @@ extern void cortexa_cache_clean(target *t, target_addr src, size_t len);
 void zynq_amp_core_dump(target *t)
 {
 /*  From Piksi LD script:
-    flash : org = 0x1c000000, len = 0x02000000
-    vring : org = 0x1e000000, len = 0x00800000
-    ram0  : org = 0x1e800000, len = 0x01800000
+    flash : org = 0x1b000000, len = 0x02000000
+    vring : org = 0x1d000000, len = 0x00800000
+    ram0  : org = 0x1d800000, len = 0x02800000
 */
     const struct section {
         uint32_t base;
         uint32_t size;
     } sections[] = {
-        {0x1c000000, 0x02000000},
-        {0x1e000000, 0x00800000},
-        {0x1e800000, 0x01800000},
+        {0x1b000000, 0x02000000},
+        {0x1d000000, 0x00800000},
+        {0x1d800000, 0x02800000},
         {0, 0}
     };
     uint8_t treg[target_regs_size(t)];

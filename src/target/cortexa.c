@@ -568,16 +568,21 @@ static bool step_one_instruction(target *t)
 static void cortexa_reset(target *t)
 {
 	uint32_t dbgvcr = apb_read(t, DBGVCR);
+
+	/* Disable watchdog */
+	target_mem_write32(t, 0xf8f00634, 0x12345678);
+	target_mem_write32(t, 0xf8f00634, 0x87654321);
+
 	/* Trap on reset only */
 	apb_write(t, DBGVCR, DBGVCR_R);
 
 	/* Unload all Linux drivers to reset slave core */
 	system("monit stop zmq_adapter_rpmsg_piksi101");
 	system("monit stop zmq_adapter_rpmsg_piksi100");
-	platform_delay(100);
+	platform_delay(500);
 	system("modprobe -r rpmsg_piksi");
 	system("modprobe -r zynq_remoteproc");
-	platform_delay(100);
+	platform_delay(500);
 
 	/* Reload Linux driver to load firmware and release from reset.
 	 * DBGVCR will trap us on the reset vector containing the
@@ -586,7 +591,7 @@ static void cortexa_reset(target *t)
 	system("monit start zmq_adapter_rpmsg_piksi100");
 	system("monit start zmq_adapter_rpmsg_piksi101");
 	system("modprobe zynq_remoteproc");
-	platform_delay(100);
+	platform_delay(1000);
 
 	/* Ensure we're not clock gated before we talk */
 	zynq_amp_clock_wait(t);

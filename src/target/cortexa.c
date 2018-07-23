@@ -577,8 +577,8 @@ static void cortexa_reset(target *t)
 	apb_write(t, DBGVCR, DBGVCR_R);
 
 	/* Unload all Linux drivers to reset slave core */
-	system("monit stop zmq_adapter_rpmsg_piksi101");
-	system("monit stop zmq_adapter_rpmsg_piksi100");
+	system("/etc/init.d/S83endpoint_adapter_rpmsg_piksi101 stop");
+	system("/etc/init.d/S83endpoint_adapter_rpmsg_piksi100 stop");
 	platform_delay(500);
 	system("modprobe -r rpmsg_piksi");
 	system("modprobe -r zynq_remoteproc");
@@ -588,8 +588,8 @@ static void cortexa_reset(target *t)
 	 * DBGVCR will trap us on the reset vector containing the
 	 * boot trampoline. */
 	system("modprobe rpmsg_piksi");
-	system("monit start zmq_adapter_rpmsg_piksi100");
-	system("monit start zmq_adapter_rpmsg_piksi101");
+	system("/etc/init.d/S83endpoint_adapter_rpmsg_piksi100 start");
+	system("/etc/init.d/S83endpoint_adapter_rpmsg_piksi101 start");
 	system("modprobe zynq_remoteproc");
 	platform_delay(1000);
 

@@ -1,7 +1,6 @@
 #include "general.h"
 #include "target.h"
-
-extern void zynq_amp_core_dump(target *t);
+#include "coredump.h"
 
 static target *crash_watchdog_target;
 

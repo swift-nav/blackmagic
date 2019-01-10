@@ -29,6 +29,7 @@
 #include "target.h"
 #include "morse.h"
 #include "version.h"
+#include "coredump.h"
 
 #ifdef PLATFORM_HAS_TRACESWO
 #	include "traceswo.h"
@@ -57,6 +58,7 @@ static bool cmd_morse(void);
 static bool cmd_assert_srst(target *t, int argc, const char **argv);
 static bool cmd_halt_timeout(target *t, int argc, const char **argv);
 static bool cmd_hard_srst(void);
+static bool cmd_gcore(target *t);
 #ifdef PLATFORM_HAS_POWER_SWITCH
 static bool cmd_target_power(target *t, int argc, const char **argv);
 #endif
@@ -75,6 +77,7 @@ const struct command_s cmd_list[] = {
 	{"assert_srst", (cmd_handler)cmd_assert_srst, "Assert SRST until:(never(default)| scan | attach)" },
 	{"halt_timeout", (cmd_handler)cmd_halt_timeout, "Timeout (ms) to wait until Cortex-M is halted: (Default 2000)" },
 	{"hard_srst", (cmd_handler)cmd_hard_srst, "Force a pulse on the hard SRST line - disconnects target" },
+	{"gcore", (cmd_handler)cmd_gcore, "Generate a core dump" },
 #ifdef PLATFORM_HAS_POWER_SWITCH
 	{"tpwr", (cmd_handler)cmd_target_power, "Supplies power to the target: (enable|disable)"},
 #endif
@@ -207,6 +210,15 @@ static bool cmd_hard_srst(void)
 	target_list_free();
 	platform_srst_set_val(true);
 	platform_srst_set_val(false);
+	return true;
+}
+
+static bool cmd_gcore(target *t)
+{
+	if (t == NULL)
+		return false;
+
+	zynq_amp_core_dump(t);
 	return true;
 }
 

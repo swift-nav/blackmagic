@@ -353,6 +353,7 @@ static bool cortexa_check_error(target *t)
 	return err;
 }
 
+#if 0
 void zynq_amp_clock_wait(target *t)
 {
 	struct cortexa_priv *priv = t->priv;
@@ -366,6 +367,7 @@ void zynq_amp_clock_wait(target *t)
 		platform_delay(1);
 	}
 }
+#endif
 
 bool cortexa_probe(volatile uint32_t *dbg, volatile uint32_t *slcr)
 {
@@ -381,7 +383,7 @@ bool cortexa_probe(volatile uint32_t *dbg, volatile uint32_t *slcr)
 	t->mem_read = cortexa_slow_mem_read;
 	t->mem_write = cortexa_slow_mem_write;
 
-	zynq_amp_clock_wait(t);
+	//zynq_amp_clock_wait(t);
 
 	/* Set up APB CSW, we won't touch this again */
 	//uint32_t csw = apb->csw | ADIV5_AP_CSW_SIZE_WORD;
@@ -421,7 +423,7 @@ bool cortexa_attach(target *t)
 	/* Clear any pending fault condition */
 	target_check_error(t);
 
-	zynq_amp_clock_wait(t);
+	//zynq_amp_clock_wait(t);
 
 	/* Unlock access to MMIO interface */
 	apb_write(t, DBGLAR, DBGLAR_KEY);
@@ -571,6 +573,7 @@ static void cortexa_regs_write_internal(target *t)
 	}
 }
 
+#if 0
 static bool step_one_instruction(target *t)
 {
 	cortexa_halt_resume(t, true);
@@ -580,11 +583,12 @@ static bool step_one_instruction(target *t)
 	} while(r == TARGET_HALT_RUNNING);
 	return r == TARGET_HALT_BREAKPOINT;
 }
+#endif
 
 static void cortexa_reset(target *t)
 {
 	uint32_t dbgvcr = apb_read(t, DBGVCR);
-
+#if 0
 	/* Disable watchdog */
 	target_mem_write32(t, 0xf8f00634, 0x12345678);
 	target_mem_write32(t, 0xf8f00634, 0x87654321);
@@ -627,7 +631,7 @@ static void cortexa_reset(target *t)
 	apb_write(t, DBGVCR, 0);
 	assert(step_one_instruction(t));
 	assert(step_one_instruction(t));
-
+#endif
 	/* Restore traps */
 	apb_write(t, DBGVCR, dbgvcr);
 }

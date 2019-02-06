@@ -62,13 +62,16 @@ void platform_init(void)
 	printf("License GPLv3+: GNU GPL version 3 or later "
 	       "<http://gnu.org/licenses/gpl.html>\n\n");
 
+	extern bool cortexa_probe(volatile uint32_t *dbg, volatile uint32_t *slcr);
 	int pmem = open("/dev/mem", O_RDWR | O_SYNC);
-	volatile uint32_t *dbg = mmap(NULL, 0x1000, PROT_READ | PROT_WRITE, MAP_SHARED,
-	                            pmem, 0xf8892000);
-	volatile uint32_t *slcr = mmap(NULL, 0x1000, PROT_READ | PROT_WRITE, MAP_SHARED,
-	                            pmem, 0xf8000000);
-    extern bool cortexa_probe(volatile uint32_t *dbg, volatile uint32_t *slcr);
-    cortexa_probe(dbg, slcr);
+	volatile uint32_t *dbg;
+	volatile uint32_t *slcr = NULL;
+	dbg = mmap(NULL, 0x1000, PROT_READ | PROT_WRITE, MAP_SHARED,
+	           pmem, 0xfebf0000);
+	cortexa_probe(dbg, slcr);
+	dbg = mmap(NULL, 0x1000, PROT_READ | PROT_WRITE, MAP_SHARED,
+	           pmem, 0xfebf2000);
+	cortexa_probe(dbg, slcr);
 
 	assert(gdb_if_init() == 0);
 }

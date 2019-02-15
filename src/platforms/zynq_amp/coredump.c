@@ -123,9 +123,10 @@ void zynq_amp_core_dump(target *t)
         uint32_t base;
         uint32_t size;
     } sections[] = {
-        {0x1b000000, 0x02000000},
-        {0x1d000000, 0x00800000},
-        {0x1d800000, 0x02800000},
+        {0x00000000, 0x00010000},
+        {0x7b000000, 0x02000000},
+        {0x7d000000, 0x00800000},
+        {0x7d800000, 0x02800000},
         {0, 0}
     };
     uint8_t treg[target_regs_size(t)];

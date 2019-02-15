@@ -20,6 +20,8 @@ void crash_watchdog_poll(void)
 	if (crash_watchdog_target == NULL) {
 		crash_watchdog_target =
 			target_attach_n(1, &crash_watchdog_controller);
+		if (crash_watchdog_target == NULL)
+			return;
 		target_halt_resume(crash_watchdog_target, false);
 		printf("Crash watchdog connected\n");
 	}

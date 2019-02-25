@@ -575,65 +575,17 @@ static void cortexa_regs_write_internal(target *t)
 	}
 }
 
-#if 0
-static bool step_one_instruction(target *t)
-{
-	cortexa_halt_resume(t, true);
-	enum target_halt_reason r;
-	do {
-		r = cortexa_halt_poll(t, NULL);
-	} while(r == TARGET_HALT_RUNNING);
-	return r == TARGET_HALT_BREAKPOINT;
-}
-#endif
-
 static void cortexa_reset(target *t)
 {
 	uint32_t dbgvcr = apb_read(t, DBGVCR);
-#if 0
-	/* Disable watchdog */
-	target_mem_write32(t, 0xf8f00634, 0x12345678);
-	target_mem_write32(t, 0xf8f00634, 0x87654321);
-
 	/* Trap on reset only */
 	apb_write(t, DBGVCR, DBGVCR_R);
 
-	/* Unload all Linux drivers to reset slave core */
-	system("/etc/init.d/S83endpoint_adapter_rpmsg_piksi101 stop");
-	system("/etc/init.d/S83endpoint_adapter_rpmsg_piksi100 stop");
-	platform_delay(500);
-	system("modprobe -r rpmsg_piksi");
-	system("modprobe -r zynq_remoteproc");
-	platform_delay(500);
-
-	/* Reload Linux driver to load firmware and release from reset.
-	 * DBGVCR will trap us on the reset vector containing the
-	 * boot trampoline. */
-	system("modprobe rpmsg_piksi");
-	system("/etc/init.d/S83endpoint_adapter_rpmsg_piksi100 start");
-	system("/etc/init.d/S83endpoint_adapter_rpmsg_piksi101 start");
-	system("modprobe zynq_remoteproc");
-	platform_delay(1000);
-
-	/* Ensure we're not clock gated before we talk */
-	zynq_amp_clock_wait(t);
-
+	system("echo stop > /sys/class/remoteproc/remoteproc0/state");
+	system("echo start > /sys/class/remoteproc/remoteproc0/state");
 	/* Update our register cache with the newly reset values */
 	cortexa_regs_read_internal(t);
 
-	/* Step through Linux's boot trampoline */
-	/* From Linux kernel, arch/arm/mach-zynq/platsmp.c:62-67
-	 *   This is elegant way how to jump to any address
-	 *   0x0: Load address at 0x8 to r0
-	 *   0x4: Jump by mov instruction
-	 *   0x8: Jumping address
-	 * To get to the first firmware instruction, we need to disable traps,
-	 * and step over 2 instructions.
-	 */
-	apb_write(t, DBGVCR, 0);
-	assert(step_one_instruction(t));
-	assert(step_one_instruction(t));
-#endif
 	/* Restore traps */
 	apb_write(t, DBGVCR, dbgvcr);
 }
